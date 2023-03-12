@@ -1,0 +1,39 @@
+Time Stamp: 2023-03-12;19;23;02
+Admin Username: dpears04
+---------GCP VMs---------
+
+Name: linuxserver01
+Project: Web Presence Canada
+Purpose: webserver
+Team: Toronto Office Web Team
+OS: linux
+Opened Ports: 80,443
+Status: 
+ NAME           ZONE                       MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+linuxserver01  northamerica-northeast2-a  n1-standard-1               10.188.0.16  34.130.147.212  RUNNING
+ 
+
+
+----------AZURE VMs--------
+
+Name: linuxServer01
+Project: 
+Purpose: webserver
+Team: Toronto Office Web Grls
+OS: linux
+VM State: VM running
+Resource Group: images
+Public IP: 20.151.116.107
+Resource group created
+Opened Ports: 80,443
+
+Name: winServer01
+Project: 
+Purpose: office apps
+Team: Toronto Office Web Guys
+OS: windows
+VM State: VM running
+Resource Group: images
+Public IP: 20.151.248.218
+Opened Ports: 80,8080
+
