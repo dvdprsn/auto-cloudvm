@@ -2,6 +2,7 @@ import os
 import configparser
 import subprocess
 import vm_out
+import re
 
 
 def read_azure(config_path):
@@ -28,66 +29,102 @@ def read_azure(config_path):
 
 def handle_creation(config):
 
-    doc_items = ['purpose', 'os', 'team']
+    doc_items = ['purpose', 'os', 'team', 'name', 'location']
     az_command = ['az', 'vm', 'create']
-
-    # !TODO: Cpu choice, Memory size, disk space
-    # IMPORTANT -- Ports
-    # We should only pull these lists once to save time
-
-    # images = subprocess.run(['gcloud', 'compute', 'images', 'list', '--format=value(PROJECT, name)'], capture_output=True, text=True).stdout.split()
-    # zones = subprocess.run(['gcloud', 'compute', 'zones', 'list', '--format=value(name)'], capture_output=True, text=True).stdout.split()
+    az_portcommand = ['az', 'vm', 'open-port']
+    open_ports = False
+    name = ''
+    location = ''
+    resource_group = ''
 
     # Capture name first to ensure it gets appended to the correct place
     if "name" in config:
-        # Validate that the name follows the GCP expected
-        # if not name_validation(config["name"]):
-        #     print("Name for this VM description is invalid")
-        #     return
-        print(config["name"])
-        # gcp_command.append(config['name'])
+        name = config['name']
+        az_command.append("--name")
+        az_command.append(config['name'])
     else:
+        # Change error here
         print("Name not specified")
         return
+
+    # Get location
+    if "location" in config:
+        location = config['location']
+        az_command.append("--location")
+        az_command.append(config['location'])
+    else:
+        print("Location not found in config")
+        return
+
+    # Get and create resource group if needed
+    if "resource-group" in config:
+        resource_group = config['resource-group']
+        # Does the resource-group already exist
+        rgExists = subprocess.run(['az', 'group', 'exists', '--name', resource_group], capture_output=True, text=True).stdout
+        # If it does not create it
+        if 'false' in rgExists:
+            # create resource group
+            print(f'az group create --name {resource_group} --location {location}')
+            rgCreate = subprocess.run(['az', 'group', 'create', '--name', resource_group, '--location', location], capture_output=True, text=True).stdout
+            print(rgCreate)
+        az_command.append('--resource-group')
+        az_command.append(resource_group)
+    else:
+        print("resource-group not found in config")
+        return
+
+    # Handle OS specific requirements
+    if 'os' not in config:
+        print("OS must be defined in config")
+        return
+    if 'linux' in config['os']:
+        az_command.append('--generate-ssh-keys')
+    elif 'windows' in config['os']:
+        if "admin-password" in config:
+            az_command.append("--admin-password")
+            # Validate password
+            if pass_validation(config['admin-password']):
+                az_command.append(config['admin-password'])
+            else:
+                # Password validation failed
+                return
+        else:
+            print("admin-password required for windows VMs on Azure")
+            return
+    else:
+        print("OS should be linux or windows")
+        return
+
+    # For all other keys in the file
     for key in config:
         if "image" == key:
-            # Image not found in list
-            # if not image_validation(config[key], images):
-            #     print("This image does not exist")
-            #     return
-            print(config[key])
-            # gcp_command.append(f'--image={config[key]}')
-        elif "resource-group" == key:
-            # Image project not found in list
-            # if not image_validation(config[key], images):
-            #     print("This image project does not exist")
-            #     return
-            print(config[key])
-            # gcp_command.append(f'--image-project={config[key]}')
-        elif "location" == key:
-            # Zone not found in list
-            # if not zone_validation(config[key], zones):
-            #     print("This zone does not exist")
-            #     return
-            print(config[key])
-        elif "resource-group" == key:
-            # Zone not found in list
-            # if not zone_validation(config[key], zones):
-            #     print("This zone does not exist")
-            #     return
-            print(config[key])
-            # gcp_command.append(f'--zone={config[key]}')
+            az_command.append('--image')
+            az_command.append(config[key])
+        elif "admin-username" == key:
+            az_command.append('--admin-username')
+            az_command.append(config[key])
+        elif "open-ports" == key:
+            open_ports = True
+            az_portcommand.append('--port')
+            az_portcommand.append(config[key])
+            az_portcommand.append('--resource-group')
+            az_portcommand.append(resource_group)
+            az_portcommand.append('--name')
+            az_portcommand.append(name)
         elif key not in doc_items:
-            az_command.append(f"--{key}={config[key]}")
-    # print(" ".join(gcp_command))
-    vm_out.create_log()
+            az_command.append(f"--{key}")
+            az_command.append(config[key])
+
+    print(" ".join(az_command))
     # Uncomment to create VMs
-    # creation_output = subprocess.run(gcp_command, capture_output=True, text=True).stdout
+    # creation_output = subprocess.run(az_command, capture_output=True, text=True).stdout
     # print(creation_output)
+    if open_ports:
+        # port_output = subprocess.run(az_portcommand, capture_output=True, text=True).stdout
+        # print(port_output)
+        pass
 
-
-# def name_validation(name):
-#     return all(c.islower() or c.isdigit() for c in name)
+    vm_out.create_log()
 
 
 def image_validation(image, images):
@@ -98,7 +135,26 @@ def loc_validation(loc, locs):
     return any(item == loc for item in locs)
 
 
+def pass_validation(password):
+    if not (any(c.islower() for c in password)):
+        print('admin-password must contain 1 lowercase')
+        return False
+    if not (any(c.isupper() for c in password)):
+        print('admin-password must contain 1 uppercase')
+        return False
+    if not (any(c.isdigit() for c in password)):
+        print('admin-password must contain a number')
+        return False
+    if (len(password) <= 12 or len(password) >= 123):
+        print("admin-password must be between 12 and 123 characters")
+        return False
+    if not (re.search('[\\W_]', password)):
+        print("admin-password must contain a special character")
+        return False
+    return True
+
+
 def min_contents(config):
-    # AZ has no project
+    # AZ has no project or should it??
     req_contents = ["name", "purpose", "resource-group", "team", "os", "image", "admin-username", "location"]
     return set(req_contents).issubset(config)

@@ -31,7 +31,7 @@ def handle_creation(config):
     gcp_portcommand = ['gcloud', 'compute', 'firewall-rules', 'create']
     doc_items = ['project', 'team', 'purpose', 'os', 'name', 'open-ports']
     hasPorts = False
-    # IMPORTANT -- Ports
+    # IMPORTANT -- Check if vm already exists and maybe for project
     # We should only pull these lists once to save time
     images = subprocess.run(['gcloud', 'compute', 'images', 'list', '--format=value(PROJECT, name)'], capture_output=True, text=True).stdout.split()
     zones = subprocess.run(['gcloud', 'compute', 'zones', 'list', '--format=value(name)'], capture_output=True, text=True).stdout.split()
