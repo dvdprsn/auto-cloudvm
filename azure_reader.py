@@ -1,12 +1,13 @@
 import os
 import configparser
 import subprocess
-import vm_out
 import re
+import json
 
 
 def read_azure(config_path):
 
+    res = []
     # If file does not exist
     if not os.path.exists(config_path):
         print("Config file does no exists!")
@@ -24,7 +25,9 @@ def read_azure(config_path):
         if not min_contents(config[elem]):
             print("Config contains missing descriptions")
             return
-        handle_creation(config[elem])
+        res.append(handle_creation(config[elem]))
+
+    return res
 
 
 def handle_creation(config):
@@ -36,6 +39,7 @@ def handle_creation(config):
     name = ''
     location = ''
     resource_group = ''
+    rgCreate = ''
 
     # Capture name first to ensure it gets appended to the correct place
     if "name" in config:
@@ -66,7 +70,7 @@ def handle_creation(config):
             # create resource group
             print(f'az group create --name {resource_group} --location {location}')
             rgCreate = subprocess.run(['az', 'group', 'create', '--name', resource_group, '--location', location], capture_output=True, text=True).stdout
-            print(rgCreate)
+            # print(rgCreate)
         az_command.append('--resource-group')
         az_command.append(resource_group)
     else:
@@ -117,22 +121,47 @@ def handle_creation(config):
 
     print(" ".join(az_command))
     # Uncomment to create VMs
-    # creation_output = subprocess.run(az_command, capture_output=True, text=True).stdout
+    creation_output = subprocess.run(az_command, capture_output=True, text=True).stdout
     # print(creation_output)
+    port_output = ''
     if open_ports:
-        # port_output = subprocess.run(az_portcommand, capture_output=True, text=True).stdout
+        print(" ".join(az_portcommand))
+        port_output = subprocess.run(az_portcommand, capture_output=True, text=True).stdout
         # print(port_output)
         pass
 
-    vm_out.create_log()
+    res = format_output(config, creation_output, port_output, rgCreate)
+    return res
 
 
-def image_validation(image, images):
-    return any(item == image for item in images)
+def format_output(config, creation_out, port_out, rgCreate):
+    ret_string = ''
+    name = config['name']
+    project = ''
+    if 'project' in config:
+        project = config['project']
+    purpose = config['purpose']
+    team = config['team']
+    os = config['os']
 
+    ret_string += f"Name: {name}\n"
+    ret_string += f"Project: {project}\n"
+    ret_string += f"Purpose: {purpose}\n"
+    ret_string += f"Team: {team}\n"
+    ret_string += f"OS: {os}\n"
+    ret_string += f"Name: {name}\n"
 
-def loc_validation(loc, locs):
-    return any(item == loc for item in locs)
+    create_json = json.loads(creation_out)
+    ret_string += f"VM State: {create_json['powerState']}\n"
+    ret_string += f"Resource Group: {create_json['resourceGroup']}\n"
+    ret_string += f"Public IP: {create_json['publicIpAddress']}\n"
+
+    if len(rgCreate) != 0:
+        ret_string += "Resource group created\n"
+    if len(port_out) != 0:
+        ret_string += f"Ports {config['open-ports']}\n"
+
+    return ret_string
 
 
 def pass_validation(password):
@@ -140,6 +169,7 @@ def pass_validation(password):
         print('admin-password must contain 1 lowercase')
         return False
     if not (any(c.isupper() for c in password)):
+
         print('admin-password must contain 1 uppercase')
         return False
     if not (any(c.isdigit() for c in password)):

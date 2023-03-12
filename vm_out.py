@@ -2,17 +2,22 @@ import os
 import datetime
 
 
-def create_log():
+def create_log(az_log, gcp_log):
+
     ts_string = get_timestamp()
-    print(ts_string)
-    # VM INFO
-    # Name
-    # Project
-    # Purpose
-    # Team
-    # OS
-    # Relevant info about VM
-    # VM status
+    with open(f'VMcreation_{ts_string}.txt', 'w') as f:
+        f.write(f"Time Stamp: {ts_string}")
+        f.write(f"Admin Username: {os.getlogin()}")
+        for o in az_log:
+            print(o)
+            f.write(o)
+
+        for o in gcp_log:
+            print(o)
+            f.write(o)
+
+    # move_conf("gcp.conf")
+    # move_conf("azure.conf")
 
 
 def move_conf(config_path):

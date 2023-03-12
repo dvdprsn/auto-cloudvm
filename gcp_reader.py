@@ -1,7 +1,6 @@
 import os
 import configparser
 import subprocess
-import vm_out
 
 
 def read_gcp(config_path):
@@ -83,8 +82,6 @@ def handle_creation(config):
         print(" ".join(gcp_portcommand))
         port_out = subprocess.run(gcp_portcommand, capture_output=True, text=True).stdout
         print(port_out)
-
-    vm_out.create_log()
 
 
 def name_validation(name):
