@@ -30,9 +30,10 @@ def read_gcp(config_path):
 def handle_creation(config):
     gcp_command = ['gcloud', 'compute', 'instances', 'create']
     gcp_portcommand = ['gcloud', 'compute', 'firewall-rules', 'create']
+    # Ignore these tags
     doc_items = ['project', 'team', 'purpose', 'os', 'name', 'open-ports']
     hasPorts = False
-    # IMPORTANT -- Check if vm already exists and maybe for project
+
     # We should only pull these lists once to save time
     images = subprocess.run(['gcloud', 'compute', 'images', 'list', '--format=value(PROJECT, name)'], capture_output=True, text=True).stdout.split()
     zones = subprocess.run(['gcloud', 'compute', 'zones', 'list', '--format=value(name)'], capture_output=True, text=True).stdout.split()
@@ -86,7 +87,6 @@ def handle_creation(config):
         elif key not in doc_items:
             gcp_command.append(f"--{key}={config[key]}")
     print(" ".join(gcp_command))
-    # Uncomment to create VMs
     creation_output = subprocess.run(gcp_command, capture_output=True, text=True).stdout
     print(creation_output)
     if hasPorts:
@@ -112,7 +112,7 @@ def format_output(config, creation_output, hasPorts):
     ret_string += f"Purpose: {purpose}\n"
     ret_string += f"Team: {team}\n"
     ret_string += f"OS: {os}\n"
-    ret_string += f"Name: {name}\n"
+
     if hasPorts:
         ret_string += f"Opened Ports: {config['open-ports']}\n"
     ret_string += f"Status: \n {creation_output} \n"

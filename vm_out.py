@@ -18,17 +18,15 @@ def create_log(az_log, gcp_log):
             f.write('\n')
             f.write(o)
 
-    move_conf("gcp.conf")
-    move_conf("azure.conf")
+    move_conf("gcp.conf", ts_string)
+    move_conf("azure.conf", ts_string)
 
 
-def move_conf(config_path):
-    # move conf files to time stamp
+def move_conf(config_path, ts):
     if not os.path.exists(config_path):
         return
-    ts_string = get_timestamp()
     conf_name = config_path.replace(".conf", "")
-    os.rename(config_path, conf_name + f"_{ts_string}.conf")
+    os.rename(config_path, conf_name + f"_{ts}.conf")
 
 
 def get_timestamp():

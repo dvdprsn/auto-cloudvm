@@ -10,20 +10,20 @@ def read_azure(config_path):
     res = []
     # If file does not exist
     if not os.path.exists(config_path):
-        print("Config file does no exists!")
+        print("AZURE Config file does no exists!")
         return res
 
     config = configparser.ConfigParser()
     config.read(config_path)
     # More than 10 VMs in config file
     if len(config.sections()) > 10:
-        print("Cannot have more than 10 VM instances defined")
+        print("Cannot have more than 10 AZURE VM instances defined")
         return res
     # For each VM in the config file
     for elem in config.sections():
         # Verify config contains min contents
         if not min_contents(config[elem]):
-            print("Config contains missing descriptions")
+            print("AZURE Config contains missing descriptions")
             return res
         res.append(handle_creation(config[elem]))
 
@@ -32,9 +32,10 @@ def read_azure(config_path):
 
 def handle_creation(config):
 
-    doc_items = ['purpose', 'os', 'team', 'name', 'location']
     az_command = ['az', 'vm', 'create']
     az_portcommand = ['az', 'vm', 'open-port']
+    # Ignore tags
+    doc_items = ['purpose', 'os', 'team', 'name', 'location']
     open_ports = False
     name = ''
     location = ''
@@ -48,7 +49,7 @@ def handle_creation(config):
         az_command.append(config['name'])
     else:
         # Change error here
-        print("Name not specified")
+        print("AZURE VM Name not specified")
         return ''
 
     # Get location
@@ -57,7 +58,7 @@ def handle_creation(config):
         az_command.append("--location")
         az_command.append(config['location'])
     else:
-        print("Location not found in config")
+        print("AZURE VM Location not found in config")
         return ''
 
     # Get and create resource group if needed
@@ -70,22 +71,21 @@ def handle_creation(config):
             # create resource group
             print(f'az group create --name {resource_group} --location {location}')
             rgCreate = subprocess.run(['az', 'group', 'create', '--name', resource_group, '--location', location], capture_output=True, text=True).stdout
-            # print(rgCreate)
         az_command.append('--resource-group')
         az_command.append(resource_group)
     else:
-        print("resource-group not found in config")
+        print("AZURE resource-group not found in config")
         return ''
 
     # Does vm in this resource group already exist with same name
     test_vm = subprocess.run(['az', 'vm', 'show', '-n', name, '-g', resource_group], capture_output=True, text=True).stdout
     if (test_vm != ''):
-        print("A VM with this name already exists")
+        print(f"A VM with this name ({name}) already exists")
         return ''
 
     # Handle OS specific requirements
     if 'os' not in config:
-        print("OS must be defined in config")
+        print("AZURE OS must be defined in config")
         return ''
     if 'linux' in config['os']:
         az_command.append('--generate-ssh-keys')
@@ -102,7 +102,7 @@ def handle_creation(config):
             print("admin-password required for windows VMs on Azure")
             return ''
     else:
-        print("OS should be linux or windows")
+        print("AZURE VM OS should be linux or windows")
         return ''
 
     # For all other keys in the file
@@ -153,7 +153,6 @@ def format_output(config, creation_out, port_out, rgCreate):
     ret_string += f"Purpose: {purpose}\n"
     ret_string += f"Team: {team}\n"
     ret_string += f"OS: {os}\n"
-    ret_string += f"Name: {name}\n"
 
     create_json = json.loads(creation_out)
     ret_string += f"VM State: {create_json['powerState']}\n"
@@ -170,19 +169,19 @@ def format_output(config, creation_out, port_out, rgCreate):
 
 def pass_validation(password):
     if not (any(c.islower() for c in password)):
-        print('admin-password must contain 1 lowercase')
+        print('AZURE admin-password must contain 1 lowercase')
         return False
     if not (any(c.isupper() for c in password)):
-        print('admin-password must contain 1 uppercase')
+        print('AZURE admin-password must contain 1 uppercase')
         return False
     if not (any(c.isdigit() for c in password)):
-        print('admin-password must contain a number')
+        print('AZURE admin-password must contain a number')
         return False
     if (len(password) <= 12 or len(password) >= 123):
-        print("admin-password must be between 12 and 123 characters")
+        print("AZURE admin-password must be between 12 and 123 characters")
         return False
     if not (re.search('[\\W_]', password)):
-        print("admin-password must contain a special character")
+        print("AZURE admin-password must contain a special character")
         return False
     return True
 
