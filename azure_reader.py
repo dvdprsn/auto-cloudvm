@@ -11,20 +11,20 @@ def read_azure(config_path):
     # If file does not exist
     if not os.path.exists(config_path):
         print("Config file does no exists!")
-        return
+        return res
 
     config = configparser.ConfigParser()
     config.read(config_path)
     # More than 10 VMs in config file
     if len(config.sections()) > 10:
         print("Cannot have more than 10 VM instances defined")
-        return
+        return res
     # For each VM in the config file
     for elem in config.sections():
         # Verify config contains min contents
         if not min_contents(config[elem]):
             print("Config contains missing descriptions")
-            return
+            return res
         res.append(handle_creation(config[elem]))
 
     return res
@@ -49,7 +49,7 @@ def handle_creation(config):
     else:
         # Change error here
         print("Name not specified")
-        return
+        return ''
 
     # Get location
     if "location" in config:
@@ -58,7 +58,7 @@ def handle_creation(config):
         az_command.append(config['location'])
     else:
         print("Location not found in config")
-        return
+        return ''
 
     # Get and create resource group if needed
     if "resource-group" in config:
@@ -75,12 +75,18 @@ def handle_creation(config):
         az_command.append(resource_group)
     else:
         print("resource-group not found in config")
-        return
+        return ''
+
+    # Does vm in this resource group already exist with same name
+    test_vm = subprocess.run(['az', 'vm', 'show', '-n', name, '-g', resource_group], capture_output=True, text=True).stdout
+    if (test_vm != ''):
+        print("A VM with this name already exists")
+        return ''
 
     # Handle OS specific requirements
     if 'os' not in config:
         print("OS must be defined in config")
-        return
+        return ''
     if 'linux' in config['os']:
         az_command.append('--generate-ssh-keys')
     elif 'windows' in config['os']:
@@ -91,13 +97,13 @@ def handle_creation(config):
                 az_command.append(config['admin-password'])
             else:
                 # Password validation failed
-                return
+                return ''
         else:
             print("admin-password required for windows VMs on Azure")
-            return
+            return ''
     else:
         print("OS should be linux or windows")
-        return
+        return ''
 
     # For all other keys in the file
     for key in config:
@@ -122,13 +128,11 @@ def handle_creation(config):
     print(" ".join(az_command))
     # Uncomment to create VMs
     creation_output = subprocess.run(az_command, capture_output=True, text=True).stdout
-    # print(creation_output)
+    print(creation_output)
     port_output = ''
     if open_ports:
         print(" ".join(az_portcommand))
         port_output = subprocess.run(az_portcommand, capture_output=True, text=True).stdout
-        # print(port_output)
-        pass
 
     res = format_output(config, creation_output, port_output, rgCreate)
     return res
@@ -159,7 +163,7 @@ def format_output(config, creation_out, port_out, rgCreate):
     if len(rgCreate) != 0:
         ret_string += "Resource group created\n"
     if len(port_out) != 0:
-        ret_string += f"Ports {config['open-ports']}\n"
+        ret_string += f"Opened Ports: {config['open-ports']}\n"
 
     return ret_string
 
@@ -169,7 +173,6 @@ def pass_validation(password):
         print('admin-password must contain 1 lowercase')
         return False
     if not (any(c.isupper() for c in password)):
-
         print('admin-password must contain 1 uppercase')
         return False
     if not (any(c.isdigit() for c in password)):
